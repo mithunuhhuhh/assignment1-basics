@@ -24,5 +24,21 @@ class Embedding(nn.Module):
         return self.embedding_matrix[x] #embedding_matrix-->[num_embeddings,embedding_dim],x-->[batch,seq]
         #embedding_matrix[x] chooses the num_embeddings and replaces that dimension with batch,seq
         #therefore embedding_matrix[x]--->[batch,seq,embedding_dim]
+
+class RMSNorm(nn.Module):
+    def __init__(self,d_model: int,eps: float = 1e-5,device = None, dtype= None):
+        super().__init__()
+        self.d_model = d_model
+        self.eps = eps
+        self.gain = nn.Parameter(torch.ones(size=(d_model,),device=device,dtype=dtype))#the paper says the intial value of RMSNorm is 1 (3.3.1) so the gain shld started with a tensor full of ones
+    def forward(self,x):
+        in_dtype = x.dtype
+        x = x.to(torch.float32)
+        rms = torch.sqrt(torch.sum(((x**2)/self.d_model),dim=-1,keepdim=True)+self.eps)
+        rmsnorm = (x/rms)*self.gain
+        return rmsnorm.to(in_dtype)
+    
+
+
     
 
