@@ -54,7 +54,10 @@ def run_embedding(
         Float[Tensor, "... d_model"]: Batch of embeddings returned by your Embedding layer.
     """
 
-    raise NotImplementedError
+    from cs336_basics import model
+    embedding = model.Embedding(vocab_size,d_model)
+    embedding.load_state_dict({"embedding_matrix":weights})
+    return embedding(token_ids) #we give the token_ids as input to convert them into learned vectors
 
 
 def run_swiglu(
