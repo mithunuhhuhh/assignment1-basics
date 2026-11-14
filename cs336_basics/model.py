@@ -37,8 +37,10 @@ class RMSNorm(nn.Module):
         rms = torch.sqrt(torch.sum(((x**2)/self.d_model),dim=-1,keepdim=True)+self.eps)
         rmsnorm = (x/rms)*self.gain
         return rmsnorm.to(in_dtype)
+    
 def silu(x):
     return x*torch.sigmoid(x)
+
 class SwiGLU(nn.Module):
     def __init__(self,d_model,d_ff,device=None,dtype=None):
         super().__init__()
@@ -47,6 +49,29 @@ class SwiGLU(nn.Module):
         self.w3=Linear(d_model,d_ff,device=device,dtype=dtype) 
     def forward(self,x):
         return self.w2(silu(self.w1(x))*self.w3(x))
+
+class RoPE(nn.Module): #RotaryPositionalEmbedding
+    def __init__(self,theta: float,d_k: int,max_seq_len: int,device=None):
+        super().__init__()
+        self.i = torch.arange(0,max_seq_len,device=device)
+        self.k = torch.arange(1,(d_k//2)+1,device=device)
+        self.speed = 1/theta**(((2*self.k)-2)/d_k)
+        self.angle_grid = torch.outer(self.i,self.speed) #creates a combined grid
+        self.register_buffer("cosine",torch.cos(self.angle_grid),persistent=False) #applies cosine to every element
+        self.register_buffer("sine",torch.sin(self.angle_grid),persistent=False) #applies sine to every element
+    def forward(self,x,token_positions): #x is of the shape (batch,heads,sequence,d_k) d_k is the size of  each query/key vector,heads as in the no, of heads in teh multiattention block
+        cos = self.cosine[token_positions]
+        sin = self.sine[token_positions]
+        x_even = x[...,::2] # indices : 0,2,4
+        x_odd = x[...,1::2] # indices : 1,3,5
+        new_first = x_even*cos-x_odd*sin
+        new_second = x_even*sin+x_odd*cos
+        new_x = torch.empty_like(x)
+        new_x[...,::2] = new_first
+        new_x[...,1::2] = new_second #... --> Ellipsis can fit any dimension it is flexible. 
+        return new_x
+
+        
 
 
     
