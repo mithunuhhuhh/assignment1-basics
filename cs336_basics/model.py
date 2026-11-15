@@ -71,6 +71,15 @@ class RoPE(nn.Module): #RotaryPositionalEmbedding
         new_x[...,1::2] = new_second #... --> Ellipsis can fit any dimension it is flexible. 
         return new_x
 
+def softmax(x,dim):
+    m,i = torch.max(x,dim=dim,keepdim=True) #(values,indices)
+    exp = torch.exp(x-m)
+    out = exp/torch.sum(exp,dim=dim,keepdim=True)   
+    return out
+
+
+
+
         
 
 
