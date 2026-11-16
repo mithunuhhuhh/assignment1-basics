@@ -76,6 +76,13 @@ def softmax(x,dim):
     exp = torch.exp(x-m)
     out = exp/torch.sum(exp,dim=dim,keepdim=True)   
     return out
+def scaled_dot_product_attention(Q,K,V,mask=None):
+    d_k = K.shape[-1]
+    scaled_out = torch.matmul(Q,torch.transpose(K,-1,-2))/(d_k)**0.5
+    if mask is not None:
+        scaled_out = torch.where(mask,scaled_out,float('-inf'))
+    out = softmax(scaled_out,dim=-1)
+    return torch.matmul(out,V)
 
 
 
