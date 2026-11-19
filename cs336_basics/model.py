@@ -86,7 +86,7 @@ def scaled_dot_product_attention(Q,K,V,mask=None):
     return torch.matmul(out,V)
 
 class MultiHeadSelfAttention(nn.Module):
-    def __init__(self,d_model,num_heads,device=None,dtype=None):
+    def __init__(self,d_model,num_heads,theta=None,max_seq_len=None,device=None,dtype=None):
         super().__init__()
         self.num_heads = num_heads
         self.d_k = d_model//self.num_heads
@@ -94,7 +94,11 @@ class MultiHeadSelfAttention(nn.Module):
         self.Wk = Linear(d_model,d_model,device=device,dtype=dtype) #(num_heads*d_k,d_model) --> (d_model,d_model)
         self.Wv = Linear(d_model,d_model,device=device,dtype=dtype) #(num_heads*d_k,d_model) --> (d_model,d_model)
         self.Wo = Linear(d_model,d_model,device=device,dtype=dtype) #(num_heads*d_k,d_model) --> (d_model,d_model)
-    def forward(self,x):
+        if theta is not None:
+            self.rope = RoPE(theta=theta,d_k=self.d_k,max_seq_len=max_seq_len,device=device)
+        else:
+            self.rope = None
+    def forward(self,x,token_positions=None):
         K = self.Wk(x)
         Q = self.Wq(x)
         V = self.Wv(x)
@@ -102,6 +106,13 @@ class MultiHeadSelfAttention(nn.Module):
         Q = rearrange(Q,"... seq (h d_k) -> ... h seq d_k",h = self.num_heads)
         V = rearrange(V,"... seq (h d_k) -> ... h seq d_k",h = self.num_heads)
         seq = K.shape[-2] #SHAPE IS NOT A FUNCTION U HAVE TO USE SQUARE BRACKETS
+        if self.rope is not None:
+            if token_positions is not None:
+                Q = self.rope(Q,token_positions)
+                K = self.rope(K,token_positions)
+            else:
+                Q = self.rope(Q,torch.arange(0,seq,device=x.device))
+                K = self.rope(K,torch.arange(0,seq,device=x.device))
         ones = torch.ones(seq,seq,device=x.device)
         mask = torch.tril(ones).bool()
         out = scaled_dot_product_attention(Q,K,V,mask=mask)
