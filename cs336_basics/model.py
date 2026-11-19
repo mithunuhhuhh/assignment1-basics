@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from einops import rearrange
 
 class Linear(nn.Module):
     def __init__(self,in_features, out_features,device=None,dtype=None):
@@ -83,6 +84,32 @@ def scaled_dot_product_attention(Q,K,V,mask=None):
         scaled_out = torch.where(mask,scaled_out,float('-inf'))
     out = softmax(scaled_out,dim=-1)
     return torch.matmul(out,V)
+
+class MultiHeadSelfAttention(nn.Module):
+    def __init__(self,d_model,num_heads,device=None,dtype=None):
+        super().__init__()
+        self.num_heads = num_heads
+        self.d_k = d_model//self.num_heads
+        self.Wq = Linear(d_model,d_model,device=device,dtype=dtype) #(num_heads*d_k,d_model) --> (d_model,d_model)
+        self.Wk = Linear(d_model,d_model,device=device,dtype=dtype) #(num_heads*d_k,d_model) --> (d_model,d_model)
+        self.Wv = Linear(d_model,d_model,device=device,dtype=dtype) #(num_heads*d_k,d_model) --> (d_model,d_model)
+        self.Wo = Linear(d_model,d_model,device=device,dtype=dtype) #(num_heads*d_k,d_model) --> (d_model,d_model)
+    def forward(self,x):
+        K = self.Wk(x)
+        Q = self.Wq(x)
+        V = self.Wv(x)
+        K = rearrange(K,"... seq (h d_k) -> ... h seq d_k",h = self.num_heads)
+        Q = rearrange(Q,"... seq (h d_k) -> ... h seq d_k",h = self.num_heads)
+        V = rearrange(V,"... seq (h d_k) -> ... h seq d_k",h = self.num_heads)
+        seq = K.shape[-2] #SHAPE IS NOT A FUNCTION U HAVE TO USE SQUARE BRACKETS
+        ones = torch.ones(seq,seq,device=x.device)
+        mask = torch.tril(ones).bool()
+        out = scaled_dot_product_attention(Q,K,V,mask=mask)
+        out = rearrange(out,"... h seq d_k -> ... seq (h d_k)") #reverting the shape back to oriignal in order to apply linear layer
+        return self.Wo(out)
+
+        
+
 
 
 
