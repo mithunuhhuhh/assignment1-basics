@@ -119,6 +119,18 @@ class MultiHeadSelfAttention(nn.Module):
         out = rearrange(out,"... h seq d_k -> ... seq (h d_k)") #reverting the shape back to oriignal in order to apply linear layer
         return self.output_proj(out)
 
+class TransformerBlock(nn.Module):
+    def __init__(self,d_model,num_heads,d_ff,max_seq_len,theta,device=None,dtype=None):
+        super().__init__()
+        self.ffn = SwiGLU(d_model=d_model,d_ff=d_ff,device=device,dtype=dtype)
+        self.attn = MultiHeadSelfAttention(d_model=d_model,num_heads=num_heads,theta=theta,max_seq_len=max_seq_len,device=device,dtype=dtype)
+        self.ln1 = RMSNorm(d_model=d_model,device=device,dtype=dtype)
+        self.ln2 = RMSNorm(d_model=d_model,device=device,dtype=dtype)
+    def forward(self,x,token_positions=None):
+        out = x+self.attn(self.ln1(x),token_positions)
+        output = out+self.ffn(self.ln2(out))
+        return output
+
         
 
 
