@@ -56,7 +56,7 @@ def run_embedding(
 
     from cs336_basics import model
     embedding = model.Embedding(vocab_size,d_model)
-    embedding.load_state_dict({"embedding_matrix":weights})
+    embedding.load_state_dict({"weight":weights})
     return embedding(token_ids) #we give the token_ids as input to convert them into learned vectors
 
 
@@ -151,7 +151,7 @@ def run_multihead_self_attention(
     """
     from cs336_basics import model
     multihead_attention = model.MultiHeadSelfAttention(d_model,num_heads)
-    multihead_attention.load_state_dict({"Wq.weight": q_proj_weight,"Wk.weight": k_proj_weight,"Wv.weight": v_proj_weight,"Wo.weight": o_proj_weight})
+    multihead_attention.load_state_dict({"q_proj.weight": q_proj_weight,"k_proj.weight": k_proj_weight,"v_proj.weight": v_proj_weight,"output_proj.weight": o_proj_weight})
     return multihead_attention(in_features)
 
 def run_multihead_self_attention_with_rope(
@@ -193,7 +193,7 @@ def run_multihead_self_attention_with_rope(
     """
     from cs336_basics import model
     mha_with_rope = model.MultiHeadSelfAttention(d_model=d_model,num_heads=num_heads,theta=theta,max_seq_len=max_seq_len)
-    mha_with_rope.load_state_dict({"Wq.weight": q_proj_weight,"Wk.weight": k_proj_weight,"Wv.weight": v_proj_weight,"Wo.weight": o_proj_weight})
+    mha_with_rope.load_state_dict({"q_proj.weight": q_proj_weight,"k_proj.weight": k_proj_weight,"v_proj.weight": v_proj_weight,"output_proj.weight": o_proj_weight})
     return mha_with_rope(in_features,token_positions)
 
 def run_rope(
@@ -397,7 +397,7 @@ def run_rmsnorm(
     """
     from cs336_basics import model
     rmsnorm = model.RMSNorm(d_model,eps)
-    rmsnorm.load_state_dict({"gain":weights})
+    rmsnorm.load_state_dict({"weight":weights})
     return rmsnorm(in_features)
 
 

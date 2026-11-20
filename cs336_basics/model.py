@@ -19,10 +19,10 @@ class Embedding(nn.Module):
         super().__init__()
         self.num_embeddings = num_embeddings
         self.embedding_dim = embedding_dim
-        self.embedding_matrix = nn.Parameter(torch.empty(num_embeddings,embedding_dim,device=device,dtype=dtype))
-        torch.nn.init.trunc_normal_(self.embedding_matrix,std=1,a=(-3),b=3)
+        self.weight = nn.Parameter(torch.empty(num_embeddings,embedding_dim,device=device,dtype=dtype))
+        torch.nn.init.trunc_normal_(self.weight,std=1,a=(-3),b=3)
     def forward(self,x):
-        return self.embedding_matrix[x] #embedding_matrix-->[num_embeddings,embedding_dim],x-->[batch,seq]
+        return self.weight[x] #embedding_matrix-->[num_embeddings,embedding_dim],x-->[batch,seq]
         #embedding_matrix[x] chooses the num_embeddings and replaces that dimension with batch,seq
         #therefore embedding_matrix[x]--->[batch,seq,embedding_dim]
 
@@ -31,12 +31,12 @@ class RMSNorm(nn.Module):
         super().__init__()
         self.d_model = d_model
         self.eps = eps
-        self.gain = nn.Parameter(torch.ones(size=(d_model,),device=device,dtype=dtype))#the paper says the intial value of RMSNorm is 1 (3.3.1) so the gain shld started with a tensor full of ones
+        self.weight = nn.Parameter(torch.ones(size=(d_model,),device=device,dtype=dtype))#the paper says the intial value of RMSNorm is 1 (3.3.1) so the gain shld started with a tensor full of ones
     def forward(self,x):
         in_dtype = x.dtype
         x = x.to(torch.float32)
         rms = torch.sqrt(torch.sum(((x**2)/self.d_model),dim=-1,keepdim=True)+self.eps)
-        rmsnorm = (x/rms)*self.gain
+        rmsnorm = (x/rms)*self.weight
         return rmsnorm.to(in_dtype)
     
 def silu(x):
@@ -90,18 +90,18 @@ class MultiHeadSelfAttention(nn.Module):
         super().__init__()
         self.num_heads = num_heads
         self.d_k = d_model//self.num_heads
-        self.Wq = Linear(d_model,d_model,device=device,dtype=dtype) #(num_heads*d_k,d_model) --> (d_model,d_model)
-        self.Wk = Linear(d_model,d_model,device=device,dtype=dtype) #(num_heads*d_k,d_model) --> (d_model,d_model)
-        self.Wv = Linear(d_model,d_model,device=device,dtype=dtype) #(num_heads*d_k,d_model) --> (d_model,d_model)
-        self.Wo = Linear(d_model,d_model,device=device,dtype=dtype) #(num_heads*d_k,d_model) --> (d_model,d_model)
+        self.q_proj = Linear(d_model,d_model,device=device,dtype=dtype) #(num_heads*d_k,d_model) --> (d_model,d_model)
+        self.k_proj = Linear(d_model,d_model,device=device,dtype=dtype) #(num_heads*d_k,d_model) --> (d_model,d_model)
+        self.v_proj = Linear(d_model,d_model,device=device,dtype=dtype) #(num_heads*d_k,d_model) --> (d_model,d_model)
+        self.output_proj = Linear(d_model,d_model,device=device,dtype=dtype) #(num_heads*d_k,d_model) --> (d_model,d_model)
         if theta is not None:
             self.rope = RoPE(theta=theta,d_k=self.d_k,max_seq_len=max_seq_len,device=device)
         else:
             self.rope = None
     def forward(self,x,token_positions=None):
-        K = self.Wk(x)
-        Q = self.Wq(x)
-        V = self.Wv(x)
+        K = self.k_proj(x)
+        Q = self.q_proj(x)
+        V = self.v_proj(x)
         K = rearrange(K,"... seq (h d_k) -> ... h seq d_k",h = self.num_heads)
         Q = rearrange(Q,"... seq (h d_k) -> ... h seq d_k",h = self.num_heads)
         V = rearrange(V,"... seq (h d_k) -> ... h seq d_k",h = self.num_heads)
@@ -117,7 +117,7 @@ class MultiHeadSelfAttention(nn.Module):
         mask = torch.tril(ones).bool()
         out = scaled_dot_product_attention(Q,K,V,mask=mask)
         out = rearrange(out,"... h seq d_k -> ... seq (h d_k)") #reverting the shape back to oriignal in order to apply linear layer
-        return self.Wo(out)
+        return self.output_proj(out)
 
         
 
